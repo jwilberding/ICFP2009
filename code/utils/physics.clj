@@ -41,6 +41,7 @@ isn't a struct, constantly apply it to the other values"
   [s-t v-t a-t]
   (add s-t (mul v-t *delta-t*) (mul (div a-t 2) (expt *delta-t* 2))))
 
-;(defn vt+1
-;  "Calculates new velocity"
-;  [v-t a-t]
+(defn vt+1
+  "Calculates new velocity"
+  [v-t a-t]
+  (add v-t (mul a-t *delta-t*)))
