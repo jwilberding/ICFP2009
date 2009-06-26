@@ -30,12 +30,6 @@ const int cop_gtz = 0x4;
 
 int status = 0;
 
-int main(int argc, char *argv[])
-{
-  printf("The best damned VM eva!\n");
-  return 0;
-}
-
 // D-Type(double arg) instructions
 
 double add(int addr1, int addr2)
@@ -81,28 +75,30 @@ double phi(int addr1, int addr2)
 
 // S-Type(single arg) instructions
 
-void noop(addr)
+void noop(int addr)
 {
   printf("noop\n");
 }
 
-void cmpz(addr)
+void cmpz(int addr)
 {
   printf("cmpz not implemented yet!\n");
   status = 0;
 }
 
-double sqrt(addr)
+// sqrt already used by math.h
+
+double sqrt2(int addr)
 {
   return sqrt(data_memory[addr]);
 }
 
-double copy(addr)
+double copy(int addr)
 {
   return data_memory[addr];
 }
 
-double input(addr)
+double input(int addr)
 {
   printf("input not implemented yet!\n");
   return 0;
@@ -110,7 +106,7 @@ double input(addr)
 
 // Comparison operators
 
-void ltz(addr)
+void ltz(int addr)
 {
   if (data_memory[addr] < 0)
   {
@@ -122,7 +118,7 @@ void ltz(addr)
   }
 }
 
-void lte(addr)
+void lte(int addr)
 {
   if (data_memory[addr] <= 0)
   {
@@ -134,7 +130,7 @@ void lte(addr)
   }
 }
 
-void eqz(addr)
+void eqz(int addr)
 {
   if (data_memory[addr] == 0)
   {
@@ -146,7 +142,7 @@ void eqz(addr)
   }
 }
 
-void gez(addr)
+void gez(int addr)
 {
   if (data_memory[addr] >= 0)
   {
@@ -158,7 +154,7 @@ void gez(addr)
   }
 }
 
-void gtz(addr)
+void gtz(int addr)
 {
   if (data_memory[addr] > 0)
   {
@@ -169,3 +165,81 @@ void gtz(addr)
     status = 0;
   }
 }
+
+print_hex(char c)
+{
+  printf( "%02X", (unsigned char) c );
+}
+
+void execute_s_type(char instruction[4])
+{
+  int op_code;
+
+  op_code = (instruction[3] & 0x0F);
+
+  printf("op code: %d\n", op_code);
+}
+
+void execute_d_type(char instruction[4])
+{
+  int op_code;
+
+  op_code = (instruction[3] & 0xF0);
+
+  printf("op code: %d\n", op_code);
+}
+
+read_instruction(FILE *f)
+{
+  char instruction[4]; // 32-bits 
+  fread(&instruction, 4, 1, f);
+  
+  print_hex(instruction[3]);
+  print_hex(instruction[2]);
+  print_hex(instruction[1]);
+  print_hex(instruction[0]);
+  printf("\n");
+
+  if ((instruction[3] & 0xF0) == 0)
+  {
+    // S-type
+    printf("s type\n");
+    execute_s_type(instruction);
+  }
+  else
+  {
+    // D-type
+    printf("d type\n");
+    execute_d_type(instruction);
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  FILE *f;
+
+  printf("C.R.E.A.VM.!\n\n");
+
+  if (argc < 2)
+  {
+    printf("NO ARGUMENT SPECIFIED, SHAME ON A NIGGA\n");
+    printf("usage: %s obf_file\n", argv[0]);
+    return -1;
+  }
+
+  f = fopen(argv[1], "r");
+  
+  //while (!feof(f))
+  {
+    read_instruction(f);
+    read_instruction(f);
+    read_instruction(f);
+    read_instruction(f);
+  }
+
+  fclose(f);
+
+  return 0;
+}
+
+
