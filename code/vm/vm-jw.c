@@ -110,12 +110,6 @@ double input(addr)
 
 // Comparison operators
 
-const int cop_ltz = 0x0;
-const int cop_lez = 0x1;
-const int cop_eqz = 0x2;
-const int cop_gez = 0x3;
-const int cop_gtz = 0x4;
-
 void ltz(addr)
 {
   if (data_memory[addr] < 0)
