@@ -1,2 +1,2 @@
 all:
-	gcc vm-jw.c -o vm-jw
+	gcc -lmath vm-jw.c -o vm-jw
