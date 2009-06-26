@@ -10,6 +10,8 @@ const int op_div = 0x4;
 const int op_output = 0x5;
 const int op_phi = 0x6;
 
+int status = 0;
+
 int main(int argc, char *argv[])
 {
   printf("The best damned VM eva!\n");
@@ -36,3 +38,23 @@ int div(int addr1, int addr2)
   return (data_memory[addr1] / data_memory[addr2]);
 }
 
+int output(int addr1, int addr2)
+{
+  printf("Output to port: %f\n", data_memory[addr2]);
+}
+
+int phi(int addr1, int addr2)
+{
+  double result;
+
+  if (status == 1)
+  {
+    result = data_memory[addr1];
+  }
+  else
+  {
+    result = data_memory[addr2];
+  }
+  
+  return result;
+}
