@@ -1,9 +1,24 @@
 (clojure.core/ns utils.physics
 		 (:use clojure.contrib.math))
 
-(defstruct s :x :y)
-(defstruct v :x-v :y-v)
-(defstruct a :x-a :y-a)
+(defstruct xy-pair :x :y)
+(defn make-pair [x y]
+  (struct xy-pair x y))
+
+(defn pair-op
+  "Generalized ops for structs. If the second argument
+isn't a struct, constantly apply it to the other values"
+  [op s1 s2]
+  (if (:x s2)
+    (make-pair (op (:x s1) (:x s2))
+	       (op (:y s1) (:y s2)))
+    (make-pair (op (:x s1) s2)
+	       (op (:y s1) s2))))
+
+(defn add [& more] (reduce (fn [x y] (pair-op + x y)) {:x 0 :y 0} more))
+(defn sub [& more] (reduce (fn [x y] (pair-op - x y)) {:x 0 :y 0} more))
+(defn mul [& more] (reduce (fn [x y] (pair-op * x y)) {:x 1 :y 1} more))
+(defn div [& more] (reduce (fn [x y] (pair-op / x y)) (first more) (rest more)))
 
 (def *G* (* 6.67428 (expt 10 -11)))
 (def *earth-radius* (* 6.357 (expt 10 6)))
@@ -23,9 +38,9 @@
 
 (defn st+1
   "Calculates new position"
-  [s-t v-t a-t t]
-  (struct s
-	  (+ (:x s-t) (:x v-t)
-	     (* (/ (:x a-t) 2) (expt t 2)))
-	  (+ (:y s-t) (:y v-t)
-	     (* (/ (:y a-t) 2) (expt t 2)))))
+  [s-t v-t a-t]
+  (add s-t (mul v-t *delta-t*) (mul (div a-t 2) (expt *delta-t* 2))))
+
+;(defn vt+1
+;  "Calculates new velocity"
+;  [v-t a-t]
