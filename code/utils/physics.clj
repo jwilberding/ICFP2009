@@ -30,6 +30,12 @@ isn't a struct, constantly apply it to the other values."
 (def *delta-t* 1)
 (def *origin* (make-pair 0 0))
 
+(defn distance
+  "Distance of two points -- s1 and s2."
+  [s1 s2]
+  (sqrt (+ (expt (- (:x s1) (:x s2)) 2)
+	   (expt (- (:y s1) (:y s2)) 2))))
+
 (defn grav-force
   "Gravitational force"
   [m1 m2 r]
@@ -71,12 +77,6 @@ We assume that the 'other' target is centered at (0,0). s is the position."
     (orient-acceleration (make-pair (* magnitude (Math/cos theta))
 				    (* magnitude (Math/sin theta)))
 			 s)))
-
-(defn distance
-  "Distance of two points -- s1 and s2."
-  [s1 s2]
-  (sqrt (+ (expt (- (:x s1) (:x s2)) 2)
-	   (expt (- (:y s1) (:y s2)) 2))))
 
 (defn st+1
   "Calculates new position."
