@@ -25,6 +25,7 @@
 #     REVISION:  $Id: perl-file-header,v 1.1 2004/06/14 00:24:05 jbalint Exp $
 #===================================================================================
 
+$|++;
 #use strict;
 use warnings;
 
@@ -171,7 +172,7 @@ print_msg "read $i ins/d pairs\n";
 #only once at beginning
 $inportConfig=$stdin->getline();
 chomp($inportConfig);
-for ($t=0;$t < 5023;++$t) {
+for ($t=0;$t < 35023;++$t) {
 	$inport0=$stdin->getline();
 	if(!$inport0)
 	{
@@ -323,6 +324,7 @@ for ($j=0;$j<$i;++$j)
 			}
 			else
 			{
+				print STDERR "UNKNOWN port $port pc=$j\n";
 				print_msg "UNKNOWN port $port pc=$j\n";
 			}
 			print_msg "read port (pc=$j), port=$port, val=$d[$j]\n"
@@ -330,6 +332,7 @@ for ($j=0;$j<$i;++$j)
 		}
 		else
 		{
+			print STDERR "Out of S range op=$o at pc=$j\n";
 			print_msg "Out of S range op=$o at pc=$j\n";
 		}
 	}

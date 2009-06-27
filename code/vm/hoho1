@@ -1,0 +1,61 @@
+#!/usr/bin/env perl
+#===================================================================================
+#
+#         FILE:  hoho1
+#
+#        USAGE:  ./hoho1
+#
+#     SYNOPSIS:  k
+#
+#  DESCRIPTION:  for the first hohmann challenge, run this scrip'
+#      OPTIONS:  ---
+# REQUIREMENTS:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Jess Balint (), jbalint@improvedideas.com
+#      COMPANY:  ImprovedIdeas
+#      VERSION:  1.0
+#      CREATED:  06/27/2009 05:17:24 AM CDT
+#     REVISION:  $Id: perl-file-header,v 1.1 2004/06/14 00:24:05 jbalint Exp $
+#===================================================================================
+
+#use strict#;
+use warnings;
+
+use FileHandle;
+use IPC::Open2;
+$in=FileHandle->new;
+$out=FileHandle->new;
+open2($in, $out, "./jess-vm ../../binary/bin1.obf") or die($!);
+print $out "1001\n";
+$t = 0;
+while(1)
+{
+	if ($t == 2636)
+	{
+		print $out "-0.270443\n";
+		print $out "-2466.48\n";
+	}
+	elsif ($t == (2636 + 18876))
+	{
+		print $out "2.11469\n";
+		print $out "1482.93\n";
+	}
+	elsif ($t==22336)
+	{
+		print "Closing at t=$t\n";
+		$out->close();
+	}
+	else
+	{
+		print $out "X\n";
+	}
+
+	print ($in->getline or last);#die($!);
+	print ($in->getline or last);#die($!);
+	print ($in->getline or last);#die($!);
+	print ($in->getline or last);#die($!);
+	print ($in->getline or last);#die($!);
+	$t++;
+}
+print "Dead at t=$t\n";
