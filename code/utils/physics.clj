@@ -54,7 +54,7 @@ end is the origin. Returns the value in radians."
   [n]
   (* -1 (abs n)))
 
-(defn- orient-acceleration
+(defn orient-acceleration
   "Takes an acceleration pair, a, and its location, s, and returns
 and updated a with the correct sign."
   [a s]
@@ -72,11 +72,15 @@ and updated a with the correct sign."
 We assume that the 'other' target is centered at (0,0). s is the position."
   [m1 m2 r s]
   (let [magnitude (grav-force m1 m2 r)
-	theta (get-theta s)
-	adjacent (distance *origin* (make-pair (:x s) 0))]
+	theta (get-theta s)]
     (orient-acceleration (make-pair (* magnitude (Math/cos theta))
 				    (* magnitude (Math/sin theta)))
 			 s)))
+
+(defn get-tangent-unit-vector
+  "Given a position, s, determin the unit vector
+that is tangent at that point on the circle around on the *origin*"
+  [s])
 
 (defn get-v
   "Given s1 and s2, get v."
