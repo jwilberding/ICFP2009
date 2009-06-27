@@ -1,0 +1,268 @@
+#!/usr/bin/env perl
+#===================================================================================
+#
+#         FILE:  jess-vm
+#
+#        USAGE:  ./jess-vm < ../../binary/bin1.obf
+#
+#     SYNOPSIS:  to control this program
+#     				change initial input port values:
+#     					search for READPORT
+#     				change number of iterations run:
+#     					search for 5023
+#
+#  DESCRIPTION:  
+#      OPTIONS:  ---
+# REQUIREMENTS:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Jess Balint (), jbalint@improvedideas.com
+#      COMPANY:  ImprovedIdeas
+#      VERSION:  1.0
+#      CREATED:  06/26/2009 10:03:34 PM CDT
+#     REVISION:  $Id: perl-file-header,v 1.1 2004/06/14 00:24:05 jbalint Exp $
+#===================================================================================
+
+#use strict;
+use warnings;
+
+use IO::Handle;
+use Data::Dumper;
+use Math::Complex;
+
+my @ins;
+my @d = 0.0 x 16384;
+my @output;
+
+my $print_ports = 0;
+
+#0000000: 0000 0000  ....
+#0000004: 0000 f03f  ...?
+#0000008: 0000 0000  ....
+#000000c: 0901 0003  ....
+#0000010: 0000 0000  ....
+#0000014: 0000 0000  ....
+#0000018: 0000 0000  ....
+#000001c: 0000 3e40  ..>@
+#0000020: 0000 0000  ....
+#0000024: 0000 0000  ....
+
+my $in = new IO::Handle;
+$in->fdopen(fileno(STDIN), "r") or die($!);
+
+my $even = 1;
+
+my $status =0;
+
+
+my $i = 0;
+	$op =0 ;
+
+sub getint
+{
+	my $i = shift;
+	return unpack("L", $i);
+}
+sub getdub
+{
+	my $d = shift;
+	return unpack("d", $d);
+}
+while ($c=$in->read($x, 12,))
+{
+	if ($c != 12)
+	{
+		die($!);
+	}
+	#print unpack("H*", $x), "\n";
+	if ($even)
+	{
+		$even = 0;
+		$int = substr($x, 8, 4);
+		$dubya = substr($x, 0, 8);
+	}
+	else
+	{
+		$int = substr($x, 0, 4);
+		$dubya = substr($x, 4, 8);
+		$even = 1;
+	}
+	$int = getint($int);
+	$dubya = getdub($dubya);
+	if ($int > 0)
+	{
+		$op = $int >> 28;
+		if ($op > 0)
+		{
+			 # D
+            $ins[$i] = {'t','D','op',$op,'r1',($int>>14)&0x3fff,'r2',$int&0x3fff};
+		}
+		else
+		{
+ 				# S
+ 			$ins[$i] = {'t','S','op',$int>>24,'imm',($int>>21)&0x7,'r1',$int&0x3fff};
+		}
+	}
+	#print "p=($i, $int, $dubya)\n";
+	$d[$i]=$dubya;
+	$i++;
+	$op =0 ;
+}
+print "read $i ins/d pairs\n";
+
+for ($k=0;$k < 5023;++$k) {
+	print "*****************************************k=$k\n";
+for ($j=0;$j<$i;++$j)
+{
+	next unless ($op=$ins[$j]);
+
+	if (0)
+	{
+		print "Op pc = $j ", $op->{'t'}, " ", $op->{'op'};
+		if ($op->{'t'} eq 'S')
+		{
+			print " IMM=", $op->{'imm'} if ($op->{'op'} == 1);
+		}
+		print "\n";
+	}
+
+	if ($op->{'t'} eq 'D')
+	{
+		$o = $op->{'op'};
+		if ($o == 1)
+		{
+			$d[$j]=$d[$op->{'r1'}]+$d[$op->{'r2'}];
+		}
+		elsif ($o == 2)
+		{
+			$d[$j]=$d[$op->{'r1'}]-$d[$op->{'r2'}];
+		}
+		elsif ($o == 3)
+		{
+			$d[$j]=$d[$op->{'r1'}]*$d[$op->{'r2'}];
+		}
+		elsif ($o == 4)
+		{
+			if ($d[$op->{'r2'}] == 0.0)
+			{
+				$d[$j]=0.0;
+			}
+			else
+			{
+				$d[$j]=$d[$op->{'r1'}]/$d[$op->{'r2'}];
+			}
+		}
+		elsif ($o == 5)
+		{
+			$port = $op->{'r1'};
+			$val = $d[$op->{'r2'}];
+			# WRITEPORT
+			print "write port (pc=$j), port=$port, val=$val\n"
+				if ($print_ports);
+			$output[$port]=$val;
+		}
+		elsif ($o == 6)
+		{
+			if ($status == 1)
+			{
+				$m = $op->{'r1'};
+			}
+			else
+			{
+				$m = $op->{'r2'};
+			}
+			$d[$j] = $d[$m];
+		}
+		else
+		{
+			print "Out of D range op=$o at pc=$j\n";
+		}
+	}
+	elsif ($op->{'t'} eq 'S')
+	{
+		$o = $op->{'op'};
+		if ($o == 0)
+		{
+           	## farside comics?j
+		}
+		elsif ($o == 1)
+		{
+			$m = $d[$op->{'r1'}];
+			$imm = $op->{'imm'};
+			if ($imm == 0)
+			{
+				$status = $m < 0.0;
+			}
+			elsif ($imm == 1)
+			{
+				$status = $m <= 0.0;
+			}
+			elsif ($imm == 2)
+			{
+				$status = $m == 0.0;
+			}
+			elsif ($imm == 3)
+			{
+				$status = $m >= 0.0;
+			}
+			elsif ($imm == 4)
+			{
+				$status = $m > 0.0;
+			}
+			else
+			{
+				print "IMM $imm out of range at pc=$j\n";
+			}
+			if (!$status)
+			{
+				$status = 0;
+			}
+		}
+		elsif ($o == 2)
+		{
+			$d[$j] = abs(sqrt($d[$op->{'r1'}]));
+		}
+		elsif ($o == 3)
+		{
+			$d[$j] = $d[$op->{'r1'}];
+		}
+		elsif ($o == 4)
+		{
+			$port = $op->{'r1'} || -1;
+			# READPORT
+			if ($port == 2)
+			{
+				$d[$j] = 0;
+			}
+			elsif ($port == 3)
+			{
+				$d[$j] = 0;
+			}
+			elsif ($port == 0x3e80)
+			{
+				$d[$j] = 1001;
+			}
+			else
+			{
+				print "UNKNOWN port $port pc=$j\n";
+			}
+			print "read port (pc=$j), port=$port, val=$d[$j]\n"
+				if ($print_ports);
+		}
+		else
+		{
+			print "Out of S range op=$o at pc=$j\n";
+		}
+	}
+}
+print "Output:";
+print "\nScore: ", $output[0];
+print "\nFuel: ", $output[1];
+print "\nsx: ", $output[2];
+print "\nsy: ", $output[3];
+print "\ntarget orb rad: ", $output[4],"\n";
+}
+
+exit;
+
+$l =~ s/.*: (.+?) (.+?) .*/$1$2/g;
