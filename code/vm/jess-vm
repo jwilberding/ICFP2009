@@ -3,15 +3,17 @@
 #
 #         FILE:  jess-vm
 #
-#        USAGE:  ./jess-vm < ../../binary/bin1.obf
+#        USAGE:  ./jess-vm ../../binary/bin1.obf
+#        			... ooo OOO Then your controller comm's via std in/out
+#        			ask for directions from me, phone if im sleeping
 #
-#     SYNOPSIS:  to control this program
+#     SYNOPSIS:  (disregard this:)to control this program
 #     				change initial input port values:
 #     					search for READPORT
 #     				change number of iterations run:
 #     					search for 5023
 #
-#  DESCRIPTION:  
+#  DESCRIPTION:  hacky (but tested on 1001, results in perfect circular orbit) sim vm
 #      OPTIONS:  ---
 # REQUIREMENTS:  ---
 #         BUGS:  ---
@@ -27,28 +29,27 @@
 use warnings;
 
 use IO::Handle;
+use FileHandle;
 use Data::Dumper;
 use Math::Complex;
 
 my @ins;
 my @d = 0.0 x 16384;
 my @output;
+my @thrusts;
 
-my $print_ports = 0;
+# if log should print ports
+my $print_ports = 1;
 
-#0000000: 0000 0000  ....
-#0000004: 0000 f03f  ...?
-#0000008: 0000 0000  ....
-#000000c: 0901 0003  ....
-#0000010: 0000 0000  ....
-#0000014: 0000 0000  ....
-#0000018: 0000 0000  ....
-#000001c: 0000 3e40  ..>@
-#0000020: 0000 0000  ....
-#0000024: 0000 0000  ....
+$inport0=0;
+$inport1=0;
+$inportConfig=0;
 
-my $in = new IO::Handle;
-$in->fdopen(fileno(STDIN), "r") or die($!);
+my $in = new FileHandle($ARGV[0]) or die($!);
+my $stdin = new IO::Handle;
+$stdin->fdopen(fileno(STDIN), "r") or die($!);
+
+my $logfile = new FileHandle("vm_logfile.$$", "w") or die($!);
 
 my $even = 1;
 
@@ -57,6 +58,63 @@ my $status =0;
 
 my $i = 0;
 	$op =0 ;
+	my $t;
+
+sub print_trace_and_quit
+{
+	print STDERR "Printing trace and quit\n";
+	my $subfile = new FileHandle("vm_subfile.$$", "w");
+	if (!$subfile)
+	{
+		print STDERR "Failed to open sub file $!, dumping to log\n";
+		print $logfile Dumper(\@thrusts);
+		$logfile->flush();
+		$logfile->close();
+		exit;
+	}
+	print $logfile Dumper(\@thrusts);
+	my $px = '0'; my $py = '0';
+	$subfile->write(pack("L", 0xcafebabe));
+	$teamid = 156;
+	$subfile->write(pack("L", $teamid));
+	$subfile->write(pack("L", $inportConfig));
+	#assumption,never velo on zero
+	$subfile->write(pack("L", 0));
+	$subfile->write(pack("L", 1));
+	$subfile->write(pack("L", 16000));
+	$subfile->write(pack("d", $inportConfig));
+	for($i=0; $i <= $#thrusts; ++$i)
+	{
+#FORDEBUG$subfile->write(pack("L", 0xcccccccc));
+		$a = $thrusts[$i];
+		$x = $a->[1];
+		$y = $a->[2];
+		$subfile->write(pack("L", $a->[0]));
+		if ($x ne $px)
+		{
+			push(@GAC, [2, $x]);
+		}
+		if ($y ne $py)
+		{
+			push(@GAC, [3, $y]);
+		}
+		$subfile->write(pack("L", $#GAC + 1));
+		$subfile->write(pack("Ld", @{$_})) for (@GAC);
+		$px = $x;
+		$py = $y;
+		@GAC=();
+	}
+	$subfile->write(pack("L", $t));
+	$subfile->write(pack("L", 0));
+	$subfile->close();
+
+	exit;
+}
+
+sub print_msg
+{
+	print $logfile shift;
+}
 
 sub getint
 {
@@ -108,22 +166,43 @@ while ($c=$in->read($x, 12,))
 	$i++;
 	$op =0 ;
 }
-print "read $i ins/d pairs\n";
+print_msg "read $i ins/d pairs\n";
 
-for ($k=0;$k < 5023;++$k) {
-	print "*****************************************k=$k\n";
+#only once at beginning
+$inportConfig=$stdin->getline();
+chomp($inportConfig);
+for ($t=0;$t < 5023;++$t) {
+	$inport0=$stdin->getline();
+	if(!$inport0)
+	{
+		print_trace_and_quit();
+	}
+	chomp($inport0);
+	if($inport0 =~m/X/)
+	{
+		$inport0='0';
+		$inport1='0';
+	}
+	else
+	{
+		$inport1=$stdin->getline();
+		chomp($inport1);
+		push(@thrusts, [$t, $inport0, $inport1]);
+	}
+	print_msg "*****************************************t=$t\n";
 for ($j=0;$j<$i;++$j)
 {
 	next unless ($op=$ins[$j]);
 
+	$logfile->flush;
 	if (0)
 	{
-		print "Op pc = $j ", $op->{'t'}, " ", $op->{'op'};
+		print_msg "Op pc = $j ". $op->{'t'}. " ". $op->{'op'};
 		if ($op->{'t'} eq 'S')
 		{
-			print " IMM=", $op->{'imm'} if ($op->{'op'} == 1);
+			print_msg " IMM=". $op->{'imm'} if ($op->{'op'} == 1);
 		}
-		print "\n";
+		print_msg "\n";
 	}
 
 	if ($op->{'t'} eq 'D')
@@ -157,7 +236,7 @@ for ($j=0;$j<$i;++$j)
 			$port = $op->{'r1'};
 			$val = $d[$op->{'r2'}];
 			# WRITEPORT
-			print "write port (pc=$j), port=$port, val=$val\n"
+			print_msg "write port (pc=$j), port=$port, val=$val\n"
 				if ($print_ports);
 			$output[$port]=$val;
 		}
@@ -175,7 +254,7 @@ for ($j=0;$j<$i;++$j)
 		}
 		else
 		{
-			print "Out of D range op=$o at pc=$j\n";
+			print_msg "Out of D range op=$o at pc=$j\n";
 		}
 	}
 	elsif ($op->{'t'} eq 'S')
@@ -211,7 +290,7 @@ for ($j=0;$j<$i;++$j)
 			}
 			else
 			{
-				print "IMM $imm out of range at pc=$j\n";
+				print_msg "IMM $imm out of range at pc=$j\n";
 			}
 			if (!$status)
 			{
@@ -232,35 +311,90 @@ for ($j=0;$j<$i;++$j)
 			# READPORT
 			if ($port == 2)
 			{
-				$d[$j] = 0;
+				$d[$j] = $inport0;
 			}
 			elsif ($port == 3)
 			{
-				$d[$j] = 0;
+				$d[$j] = $inport1;
 			}
 			elsif ($port == 0x3e80)
 			{
-				$d[$j] = 1001;
+				$d[$j] = $inportConfig;
 			}
 			else
 			{
-				print "UNKNOWN port $port pc=$j\n";
+				print_msg "UNKNOWN port $port pc=$j\n";
 			}
-			print "read port (pc=$j), port=$port, val=$d[$j]\n"
+			print_msg "read port (pc=$j), port=$port, val=$d[$j]\n"
 				if ($print_ports);
 		}
 		else
 		{
-			print "Out of S range op=$o at pc=$j\n";
+			print_msg "Out of S range op=$o at pc=$j\n";
 		}
 	}
 }
-print "Output:";
-print "\nScore: ", $output[0];
-print "\nFuel: ", $output[1];
-print "\nsx: ", $output[2];
-print "\nsy: ", $output[3];
-print "\ntarget orb rad: ", $output[4],"\n";
+if ($inportConfig < 1005)
+{
+print_msg "Hohmann Output:";
+print_msg "\nScore: ". $output[0];
+print_msg "\nFuel: ". $output[1];
+print_msg "\nsx: ". $output[2];
+print_msg "\nsy: ". $output[3];
+print_msg "\ntarget orb rad: ". $output[4]."\n";
+print "t=$t,0=".$output[0]."\n";
+print "t=$t,1=".$output[1]."\n";
+print "t=$t,2=".$output[2]."\n";
+print "t=$t,3=".$output[3]."\n";
+print "t=$t,4=".$output[4]."\n";
+}
+elsif ($inportConfig < 4000)
+{
+print_msg "Meet and Greet Output:";
+print_msg "\nScore: ". $output[0];
+print_msg "\nFuel: ". $output[1];
+print_msg "\nsx: ". $output[2];
+print_msg "\nsy: ". $output[3];
+print_msg "\nsx rel target: ". $output[4]."\n";
+print_msg "\nsy rel target: ". $output[5]."\n";
+print "t=$t,0=".$output[0]."\n";
+print "t=$t,1=".$output[1]."\n";
+print "t=$t,2=".$output[2]."\n";
+print "t=$t,3=".$output[3]."\n";
+print "t=$t,4=".$output[4]."\n";
+print "t=$t,5=".$output[5]."\n";
+}
+else
+{
+print_msg "Clear skies:";
+print_msg "\nScore: ". $output[0];
+print_msg "\nFuel: ". $output[1];
+print_msg "\nsx: ". $output[2];
+print_msg "\nsy: ". $output[3];
+print_msg "\nsx fuel: ". $output[4]."\n";
+print_msg "\nsy fuel: ". $output[5]."\n";
+print_msg "\nfuel in station: ". $output[6]."\n";
+print "t=$t,0=".$output[0]."\n";
+print "t=$t,1=".$output[1]."\n";
+print "t=$t,2=".$output[2]."\n";
+print "t=$t,3=".$output[3]."\n";
+print "t=$t,4=".$output[4]."\n";
+print "t=$t,5=".$output[5]."\n";
+print "t=$t,6=".$output[6]."\n";
+$on=6;
+for($tgt=0;$tgt<12;++$tgt)
+{
+	$on++;
+	print_msg "\n tgt $tgt sx = ".$output[$on];
+	print "t=$t,0_$tgt".$output[$on]."\n";
+	$on++;
+	print_msg "\n tgt $tgt sy = ".$output[$on];
+	print "t=$t,1_$tgt".$output[$on]."\n";
+	$on++;
+	print_msg "\n tgt $tgt found = ".$output[$on];
+	print "t=$t,2_$tgt".$output[$on]."\n";
+}
+}
 }
 
 exit;
