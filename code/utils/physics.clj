@@ -19,9 +19,9 @@ isn't a struct, constantly apply it to the other values."
     (make-pair (op (:x s1) s2)
 	       (op (:y s1) s2))))
 
-(defn add [& more] (reduce (fn [x y] (pair-op + x y)) {:x 0 :y 0} more))
-(defn sub [& more] (reduce (fn [x y] (pair-op - x y)) {:x 0 :y 0} more))
-(defn mul [& more] (reduce (fn [x y] (pair-op * x y)) {:x 1 :y 1} more))
+(defn add [& more] (reduce (fn [x y] (pair-op + x y)) (first more) (rest more)))
+(defn sub [& more] (reduce (fn [x y] (pair-op - x y)) (first more) (rest more)))
+(defn mul [& more] (reduce (fn [x y] (pair-op * x y)) (first more) (rest more)))
 (defn div [& more] (reduce (fn [x y] (pair-op / x y)) (first more) (rest more)))
 
 (def *G* (* 6.67428 (expt 10 -11)))
@@ -77,6 +77,11 @@ We assume that the 'other' target is centered at (0,0). s is the position."
     (orient-acceleration (make-pair (* magnitude (Math/cos theta))
 				    (* magnitude (Math/sin theta)))
 			 s)))
+
+(defn get-v
+  "Given s1 and s2, get v."
+  [s1 s2]
+  (sub s2 s1))
 
 (defn st+1
   "Calculates new position."
